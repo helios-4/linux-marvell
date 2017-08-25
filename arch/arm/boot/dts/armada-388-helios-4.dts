@@ -199,6 +199,16 @@
 				/* What device at 0x64 ? */
 			};
 
+			i2c@11100 {
+				/*
+				 * External I2C Bus for user peripheral
+				 */
+				clock-frequency = <400000>;
+				pinctrl-0 = <&helios_i2c1_pins>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
 			sata@a8000 {
 				status = "okay";
 				#address-cells = <1>;
@@ -281,6 +291,10 @@
 				pca0_pins: pca0_pins {
 					marvell,pins = "mpp18";
 					marvell,function = "gpio";
+				};
+				helios_i2c1_pins: i2c1-pins {
+					marvell,pins = "mpp26", "mpp27";
+					marvell,function = "i2c1";
 				};
 				helios_sdhci_cd_pins: helios-sdhci-cd-pins {
 					marvell,pins = "mpp20";
