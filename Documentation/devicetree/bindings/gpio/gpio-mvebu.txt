@@ -46,6 +46,23 @@ Optional:
   The base of CP0 bank0 should be 20 (after AP-806 pins) the base of CP0 bank1 should be
   52 (after AP-806, and CP0 bank0 pins)
 
+Optional properties:
+
+In order to use the gpio lines in PWM mode, some additional optional
+properties are required. Only Armada 370 and XP support these properties.
+
+- reg: an additional register set is needed, for the GPIO Blink
+  Counter on/off registers.
+
+- reg-names: Must contain an entry "pwm" corresponding to the
+  additional register range needed for pwm operation.
+
+- #pwm-cells: Should be two. The first cell is the pin number. The
+  second cell is reserved for flags and should be set to 0, so it has a
+  known value. It then becomes possible to use it in the future.
+
+- clocks: Must be a phandle to the clock for the gpio controller.
+
 Example:
 
 		gpio0: gpio@d0018100 {
@@ -58,4 +75,18 @@ Example:
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			interrupts = <16>, <17>, <18>, <19>;
+		};
+
+		gpio1: gpio@18140 {
+			compatible = "marvell,armada-370-xp-gpio";
+			reg = <0x18140 0x40>, <0x181c8 0x08>;
+			reg-names = "gpio", "pwm";
+			ngpios = <17>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			#pwm-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <87>, <88>, <89>;
+			clocks = <&coreclk 0>;
 		};
