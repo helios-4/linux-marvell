@@ -11,7 +11,7 @@
 #include "armada-38x-solidrun-microsom.dtsi"
 
 / {
-	model = "Helios-4";
+	model = "Helios4";
 	compatible = "marvell,armada388",
 		"marvell,armada385", "marvell,armada380";
 
@@ -91,7 +91,7 @@
 
 		fault-led {
 			label = "helios4:red:fault";
-			gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
 	};
@@ -329,7 +329,7 @@
 				};
 				helios_fan_pins: helios-fan-pins {
 					marvell,pins = "mpp41", "mpp43",
-						       "mpp48", "mpp55";
+						       "mpp36", "mpp25";
 					marvell,function = "gpio";
 				};
 				microsom_spi1_cs_pins: spi1-cs-pins {
