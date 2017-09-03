@@ -126,6 +126,16 @@
 		};
 	};
 
+	fan1: j10-pwm {
+		compatible = "pwm-fan";
+		pwms = <&gpio1 9 3000>;
+	};
+
+	fan2: j17-pwm {
+		compatible = "pwm-fan";
+		pwms = <&gpio1 4 4500>;
+	};
+
 	usb2_phy: usb2-phy {
 		compatible = "usb-nop-xceiv";
 		vbus-regulator = <&reg_5p0v_usb>;
