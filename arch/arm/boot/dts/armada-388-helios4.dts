@@ -91,7 +91,7 @@
 
 		fault-led {
 			label = "helios4:red:fault";
-			gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
 	};
@@ -322,7 +322,7 @@
 				};
 				helios_fan_pins: helios-fan-pins {
 					marvell,pins = "mpp41", "mpp43",
-						       "mpp36", "mpp25";
+						       "mpp48", "mpp55";
 					marvell,function = "gpio";
 				};
 				microsom_spi1_cs_pins: spi1-cs-pins {
