@@ -283,8 +283,6 @@
 				sd-uhs-sdr12;
 				sd-uhs-sdr25;
 				sd-uhs-sdr50;
-				keep-power-in-suspend;
-				wakeup-source;
 			};
 
 			usb@58000 {
