@@ -595,6 +595,7 @@ static void mvebu_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	spin_lock_irqsave(&mvpwm->lock, flags);
 	gpiod_free(mvpwm->gpiod);
+	mvpwm->gpiod = NULL;
 	mvpwm->used = false;
 	spin_unlock_irqrestore(&mvpwm->lock, flags);
 }
