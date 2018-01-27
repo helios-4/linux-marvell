@@ -752,6 +752,14 @@ static int mvebu_pwm_probe(struct platform_device *pdev,
 	mvpwm->chip.ops = &mvebu_pwm_ops;
 	mvpwm->chip.npwm = mvchip->chip.ngpio;
 
+	/*
+	 * There may already be some PWM allocated, so we can't force
+	 * mvpwm->chip.base to a fixed point like mvchip->chip.base.
+	 * So, we let pwmchip_add() do the numbering and take the next free
+	 * region.
+	 */
+	mvpwm->chip.base = -1;
+
 	spin_lock_init(&mvpwm->lock);
 
 	return pwmchip_add(&mvpwm->chip);
