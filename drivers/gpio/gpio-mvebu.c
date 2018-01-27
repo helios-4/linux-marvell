@@ -730,11 +730,11 @@ static int mvebu_pwm_probe(struct platform_device *pdev,
 	else
 		return -EINVAL;
 	writel_relaxed(set, mvebu_gpioreg_blink_select(mvchip));
-	mvpwm->id = id;
 
 	mvpwm = devm_kzalloc(dev, sizeof(struct mvebu_pwm), GFP_KERNEL);
 	if (!mvpwm)
 		return -ENOMEM;
+	mvpwm->id = id;
 	mvchip->mvpwm = mvpwm;
 	mvpwm->mvchip = mvchip;
 
