@@ -132,12 +132,12 @@
 
 	fan1: j10-pwm {
 		compatible = "pwm-fan";
-		pwms = <&gpio1 9 3000>;
+		pwms = <&gpio1 9 3800>;
 	};
 
 	fan2: j17-pwm {
 		compatible = "pwm-fan";
-		pwms = <&gpio1 4 4500>;
+		pwms = <&gpio1 23 3800>;
 	};
 
 	usb2_phy: usb2-phy {

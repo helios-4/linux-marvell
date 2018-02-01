@@ -89,12 +89,19 @@
 
 #define MVEBU_MAX_GPIO_PER_BANK		32
 
+struct mvebu_pwm_item {
+	struct gpio_desc	*gpiod;
+	spinlock_t		 lock;
+	unsigned int		 pin;
+	bool			 used;
+
+	struct list_head	 node;
+};
+
 struct mvebu_pwm {
 	void __iomem		*membase;
 	unsigned long		 clk_rate;
-	struct gpio_desc	*gpiod;
-	bool			 used;
-	unsigned int		 pin;
+	struct list_head	 pwms;
 	struct pwm_chip		 chip;
 	int			 id;
 	spinlock_t		 lock;
@@ -556,47 +563,58 @@ static int mvebu_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 	struct mvebu_pwm *mvpwm = to_mvebu_pwm(chip);
 	struct mvebu_gpio_chip *mvchip = mvpwm->mvchip;
 	struct gpio_desc *desc;
+	struct mvebu_pwm_item *item;
 	unsigned long flags;
 	int ret = 0;
 
-	spin_lock_irqsave(&mvpwm->lock, flags);
-	if (mvpwm->gpiod) {
-		ret = -EBUSY;
-	} else {
-		desc = gpio_to_desc(mvchip->chip.base + pwm->hwpwm);
-		if (!desc) {
-			ret = -ENODEV;
-			goto out;
-		}
-		ret = gpiod_request(desc, "mvebu-pwm");
-		if (ret)
-			goto out;
+	item = kzalloc(sizeof(*item), GFP_KERNEL);
+	if (!item)
+		return -ENODEV;
 
-		ret = gpiod_direction_output(desc, 0);
-		if (ret) {
-			gpiod_free(desc);
-			goto out;
-		}
-
-		mvpwm->gpiod = desc;
-		mvpwm->pin = pwm->pwm - mvchip->chip.base;
-		mvpwm->used = true;
+	desc = gpio_to_desc(mvchip->chip.base + pwm->hwpwm);
+	if (!desc) {
+		ret = -ENODEV;
+		goto out;
 	}
 
-out:
+	ret = gpiod_request(desc, "mvebu-pwm");
+	if (ret)
+		goto out;
+
+	ret = gpiod_direction_output(desc, 0);
+	if (ret) {
+		gpiod_free(desc);
+		goto out;
+	}
+
+	spin_lock_irqsave(&mvpwm->lock, flags);
+	item->gpiod = desc;
+	item->pin = pwm->pwm - mvchip->chip.base;
+	item->used = true;
 	spin_unlock_irqrestore(&mvpwm->lock, flags);
+
+	list_add_tail(&item->node, &mvpwm->pwms);
+
+out:
 	return ret;
 }
 
 static void mvebu_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mvebu_pwm *mvpwm = to_mvebu_pwm(chip);
+	struct mvebu_pwm_item *item, *tmp;
 	unsigned long flags;
 
-	spin_lock_irqsave(&mvpwm->lock, flags);
-	gpiod_free(mvpwm->gpiod);
-	mvpwm->used = false;
-	spin_unlock_irqrestore(&mvpwm->lock, flags);
+	list_for_each_entry_safe_reverse(item, tmp, &mvpwm->pwms, node) {
+		gpiod_free(item->gpiod);
+		spin_lock_irqsave(&mvpwm->lock, flags);
+		item->gpiod = NULL;
+		item->used = false;
+		spin_unlock_irqrestore(&mvpwm->lock, flags);
+
+		list_del(&item->node);
+		kfree(item);
+	}
 }
 
 static int mvebu_pwm_config(struct pwm_chip *chip, struct pwm_device *pwmd,
@@ -604,6 +622,7 @@ static int mvebu_pwm_config(struct pwm_chip *chip, struct pwm_device *pwmd,
 {
 	struct mvebu_pwm *pwm = to_mvebu_pwm(chip);
 	struct mvebu_gpio_chip *mvchip = pwm->mvchip;
+	struct mvebu_pwm_item *item;
 	unsigned int on, off;
 	unsigned long long val;
 	u32 u;
@@ -627,8 +646,10 @@ static int mvebu_pwm_config(struct pwm_chip *chip, struct pwm_device *pwmd,
 		off = 1;
 
 	u = readl_relaxed(mvebu_gpioreg_blink_select(mvchip));
-	u &= ~(1 << pwm->pin);
-	u |= (pwm->id << pwm->pin);
+	list_for_each_entry(item, &pwm->pwms, node)
+		u &= ~(1 << item->pin);
+	list_for_each_entry(item, &pwm->pwms, node)
+		u |= (pwm->id << item->pin);
 	writel_relaxed(u, mvebu_gpioreg_blink_select(mvchip));
 
 	writel_relaxed(on, mvebu_pwmreg_blink_on_duration(pwm));
@@ -641,8 +662,10 @@ static int mvebu_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mvebu_pwm *mvpwm = to_mvebu_pwm(chip);
 	struct mvebu_gpio_chip *mvchip = mvpwm->mvchip;
+	struct mvebu_pwm_item *item;
 
-	mvebu_gpio_blink(&mvchip->chip, mvpwm->pin, 1);
+	list_for_each_entry(item, &mvpwm->pwms, node)
+		mvebu_gpio_blink(&mvchip->chip, item->pin, 1);
 
 	return 0;
 }
@@ -651,8 +674,10 @@ static void mvebu_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mvebu_pwm *mvpwm = to_mvebu_pwm(chip);
 	struct mvebu_gpio_chip *mvchip = mvpwm->mvchip;
+	struct mvebu_pwm_item *item;
 
-	mvebu_gpio_blink(&mvchip->chip, mvpwm->pin, 0);
+	list_for_each_entry(item, &mvpwm->pwms, node)
+		mvebu_gpio_blink(&mvchip->chip, item->pin, 0);
 }
 
 static const struct pwm_ops mvebu_pwm_ops = {
@@ -730,11 +755,12 @@ static int mvebu_pwm_probe(struct platform_device *pdev,
 	else
 		return -EINVAL;
 	writel_relaxed(set, mvebu_gpioreg_blink_select(mvchip));
-	mvpwm->id = id;
 
 	mvpwm = devm_kzalloc(dev, sizeof(struct mvebu_pwm), GFP_KERNEL);
 	if (!mvpwm)
 		return -ENOMEM;
+	INIT_LIST_HEAD(&mvpwm->pwms);
+	mvpwm->id = id;
 	mvchip->mvpwm = mvpwm;
 	mvpwm->mvchip = mvchip;
 
@@ -751,6 +777,14 @@ static int mvebu_pwm_probe(struct platform_device *pdev,
 	mvpwm->chip.dev = dev;
 	mvpwm->chip.ops = &mvebu_pwm_ops;
 	mvpwm->chip.npwm = mvchip->chip.ngpio;
+
+	/*
+	 * There may already be some PWM allocated, so we can't force
+	 * mvpwm->chip.base to a fixed point like mvchip->chip.base.
+	 * So, we let pwmchip_add() do the numbering and take the next free
+	 * region.
+	 */
+	mvpwm->chip.base = -1;
 
 	spin_lock_init(&mvpwm->lock);
 
